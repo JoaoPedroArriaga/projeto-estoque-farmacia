@@ -14,7 +14,7 @@ from src.utils.csv_utils import escrever_csv, gerar_nome_arquivo
 from src.config.database import db
 
 def buscar_lotes():
-    """Busca lotes disponíveis no banco"""
+    """Busca lotes disponíveis no banco (apenas para referência de combinações válidas)"""
     db.connect()
     lotes = db.execute(
         """SELECT l.id_lote, l.numero_lote, l.codigo_medicamento, l.quantidade_atual 
@@ -26,8 +26,8 @@ def buscar_lotes():
     db.close()
     return lotes
 
-def gerar_reserva(codigo_medicamento=789123, quantidade=2, lote='LOTE123', id_prescricao=None, cpf_paciente=12345678901):
-    """Gera um arquivo de reserva"""
+def gerar_reserva(codigo_medicamento=789123, quantidade=2, id_prescricao=None, cpf_paciente=12345678901):
+    """Gera um arquivo de reserva (sem lote)"""
     if id_prescricao is None:
         id_prescricao = datetime.now().strftime('%H%M%S')
     
@@ -35,14 +35,13 @@ def gerar_reserva(codigo_medicamento=789123, quantidade=2, lote='LOTE123', id_pr
         'id_prescricao': str(id_prescricao),
         'cpf_paciente': str(cpf_paciente),
         'codigo_medicamento': str(codigo_medicamento),
-        'quantidade': str(quantidade),
-        'lote': lote
+        'quantidade': str(quantidade)
     }]
     
     nome_arquivo = gerar_nome_arquivo('RESERVA', id_prescricao)
     caminho = os.path.join('data', 'entrada', 'reservas', nome_arquivo)
     
-    campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 'quantidade', 'lote']
+    campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 'quantidade']
     escrever_csv(caminho, campos, dados)
     print(f"✅ RESERVA gerada: {caminho}")
     return caminho
@@ -66,10 +65,9 @@ def gerar_multiplas_reservas(quantidade=5):
     arquivos = []
     
     for i in range(quantidade):
-        # Selecionar lote aleatório
+        # Selecionar lote aleatório (apenas para escolher um medicamento válido)
         lote_sel = random.choice(lotes)
         codigo = lote_sel['codigo_medicamento']
-        lote_numero = lote_sel['numero_lote']
         
         # Quantidade variada (até o estoque disponível)
         max_qtd = min(5, int(lote_sel['quantidade_atual']))
@@ -81,12 +79,11 @@ def gerar_multiplas_reservas(quantidade=5):
         # ID da prescrição
         id_prescricao = int(f"{datetime.now().strftime('%H%M%S')}{i+1:03d}")
         
-        print(f"   [{i+1}] Lote: {lote_numero} | Medicamento: {codigo} | Qtd: {quantidade} | CPF: {cpf}")
+        print(f"   [{i+1}] Medicamento: {codigo} | Qtd: {quantidade} | CPF: {cpf}")
         
         arquivo = gerar_reserva(
             codigo_medicamento=codigo,
             quantidade=quantidade,
-            lote=lote_numero,
             id_prescricao=id_prescricao,
             cpf_paciente=cpf
         )
@@ -96,5 +93,4 @@ def gerar_multiplas_reservas(quantidade=5):
     return arquivos
 
 if __name__ == "__main__":
-    # Gerar 5 reservas aleatórias
     gerar_multiplas_reservas(5)

@@ -38,7 +38,7 @@ class ConsultaProcessor:
                 codigo_medicamento, quantidade
             )
             
-            # Registra no log
+            # Registra no log (versão simplificada)
             LogConsulta.registrar(
                 os.path.basename(caminho_arquivo), 
                 id_prescricao, 
@@ -46,8 +46,6 @@ class ConsultaProcessor:
                 codigo_medicamento,
                 quantidade, 
                 resultado['disponivel'], 
-                None,
-                None,
                 'Disponível' if resultado['disponivel'] else 'Estoque insuficiente'
             )
             

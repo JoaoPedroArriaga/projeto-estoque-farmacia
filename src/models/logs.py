@@ -3,14 +3,15 @@ from src.config.database import db
 class LogConsulta:
     @staticmethod
     def registrar(arquivo_nome, id_prescricao, cpf_paciente, codigo_medicamento,
-                  quantidade, disponivel, lote_sugerido, validade_lote, observacao):
+                  quantidade, disponivel, observacao):
+        """Registra log de consulta (versão simplificada)"""
         return db.execute(
             """INSERT INTO logs_consultas 
                (arquivo_nome, id_prescricao, cpf_paciente, codigo_medicamento,
-                quantidade, disponivel, lote_sugerido, validade_lote, observacao)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                quantidade, disponivel, observacao)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
             (arquivo_nome, id_prescricao, cpf_paciente, codigo_medicamento,
-             quantidade, disponivel, lote_sugerido, validade_lote, observacao)
+             quantidade, disponivel, observacao)
         )
 
 class LogReserva:

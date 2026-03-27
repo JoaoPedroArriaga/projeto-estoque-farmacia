@@ -79,7 +79,7 @@ def gerar_fluxo_completo(quantidade=3):
         
         print(f"   📋 ID: {id_prescricao}")
         print(f"   💊 Medicamento: {medicamento_nome} (código {codigo})")
-        print(f"   🏷️  Lote: {lote_numero}")
+        print(f"   🏷️  Lote (para baixa): {lote_numero}")
         print(f"   🔢 Quantidade: {quantidade}")
         print(f"   👤 CPF: {cpf}")
         print()
@@ -94,18 +94,17 @@ def gerar_fluxo_completo(quantidade=3):
         )
         todos_arquivos['consultas'].append(consulta)
         
-        # Gerar reserva
+        # Gerar reserva (sem lote)
         print("   [2/3] Gerando RESERVA...")
         reserva = gerar_reserva(
             codigo_medicamento=codigo,
             quantidade=quantidade,
-            lote=lote_numero,
             id_prescricao=id_prescricao,
             cpf_paciente=cpf
         )
         todos_arquivos['reservas'].append(reserva)
         
-        # Gerar baixa
+        # Gerar baixa (com o lote que será reservado)
         print("   [3/3] Gerando BAIXA...")
         baixa = gerar_baixa(
             codigo_medicamento=codigo,
