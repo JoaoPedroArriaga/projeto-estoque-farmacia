@@ -11,7 +11,7 @@ class ConsumoGenerator:
     
     @staticmethod
     def ler_consumo_existente(caminho):
-        """Lê o arquivo de consumo existente e retorna dicionário com chave composta"""
+        """Lê o arquivo de consumo existente"""
         if not os.path.exists(caminho):
             return {}
         
@@ -20,13 +20,11 @@ class ConsumoGenerator:
             with open(caminho, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    # Chave composta: id_prescricao + codigo + lote
-                    chave = f"{row['id_prescricao']}_{row['codigo_medicamento']}_{row['lote']}"
+                    chave = f"{row['id_prescricao']}_{row['codigo_medicamento']}"
                     consumos_existentes[chave] = {
                         'id_prescricao': row['id_prescricao'],
                         'cpf_paciente': row['cpf_paciente'],
                         'codigo_medicamento': row['codigo_medicamento'],
-                        'lote': row['lote'],
                         'quantidade': float(row['quantidade']),
                         'unidade': row['unidade'],
                         'preco_total': float(row['preco_total']),
@@ -40,20 +38,17 @@ class ConsumoGenerator:
     
     @staticmethod
     def mesclar_consumos(consumos_existentes, novos_consumos):
-        """Mescla consumos existentes com novos, somando quantidades iguais"""
-        # Copiar existentes
+        """Mescla consumos existentes com novos"""
         consumos_mesclados = consumos_existentes.copy()
         
         for novo in novos_consumos:
-            chave = f"{novo['id_prescricao']}_{novo['codigo_medicamento']}_{novo['lote']}"
+            chave = f"{novo['id_prescricao']}_{novo['codigo_medicamento']}"
             
             if chave in consumos_mesclados:
-                # Item já existe - somar quantidade
                 consumos_mesclados[chave]['quantidade'] += novo['quantidade']
                 consumos_mesclados[chave]['preco_total'] += novo['preco_total']
                 print(f"   🔄 [DEBUG] Somando: {chave} | +{novo['quantidade']} | Total: {consumos_mesclados[chave]['quantidade']}")
             else:
-                # Item novo - adicionar
                 consumos_mesclados[chave] = novo
                 print(f"   ➕ [DEBUG] Adicionando novo item: {chave}")
         
@@ -61,16 +56,16 @@ class ConsumoGenerator:
     
     @staticmethod
     def gerar(p_data=None):
-        """Gera o relatório de consumo do dia com acúmulo"""
+        """Gera o relatório de consumo do dia"""
         if p_data is None:
             p_data = date.today()
         
         print(f"📊 Gerando relatório de consumo para {p_data}")
         
-        # Buscar itens de consumo não enviados do banco
+        # Buscar itens de consumo não enviados
         novos_itens = db.execute(
             """SELECT id_prescricao, cpf_paciente, codigo_medicamento,
-                      lote, quantidade, unidade, preco_total, data_uso
+                      quantidade, unidade, preco_total, data_uso
                FROM itens_consumo
                WHERE consolidado_em = %s AND enviado_para_g1 = FALSE""",
             (p_data,),
@@ -81,7 +76,7 @@ class ConsumoGenerator:
             print(f"   Nenhum novo item para consolidar em {p_data}")
             return False
         
-        # Gerar nome do arquivo (apenas por data)
+        # Gerar nome do arquivo
         nome_arquivo = f"CONSUMO_{p_data.strftime('%y%m%d')}.csv"
         
         data_dir = os.getenv('DATA_DIR', 'data')
@@ -98,7 +93,6 @@ class ConsumoGenerator:
                 'id_prescricao': str(item['id_prescricao']),
                 'cpf_paciente': str(item['cpf_paciente']),
                 'codigo_medicamento': str(item['codigo_medicamento']),
-                'lote': item['lote'],
                 'quantidade': float(item['quantidade']),
                 'unidade': item['unidade'],
                 'preco_total': float(item['preco_total']),
@@ -112,12 +106,11 @@ class ConsumoGenerator:
         lista_final = list(consumos_mesclados.values())
         lista_final.sort(key=lambda x: x['data_uso'])
         
-        # Campos do relatório
+        # Campos do relatório (sem lote)
         campos = [
             'id_prescricao',
             'cpf_paciente',
             'codigo_medicamento',
-            'lote',
             'quantidade',
             'unidade',
             'preco_total',
@@ -127,7 +120,7 @@ class ConsumoGenerator:
         # Escrever arquivo
         escrever_csv(caminho, campos, lista_final)
         
-        # Marcar como enviados no banco
+        # Marcar como enviados
         db.execute(
             """UPDATE itens_consumo 
                SET enviado_para_g1 = TRUE, enviado_em = CURRENT_TIMESTAMP
