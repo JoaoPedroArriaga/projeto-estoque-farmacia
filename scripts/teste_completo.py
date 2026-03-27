@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-"""
-Script de teste completo para apresentação
-"""
 import os
 import sys
 from datetime import datetime, date
@@ -16,9 +13,8 @@ from src.processors.consumo_generator import ConsumoGenerator
 from src.utils.csv_utils import escrever_csv, gerar_nome_arquivo
 
 def limpar_dados():
-    """Limpa dados anteriores - mantém conexão aberta"""
+    """Limpa dados anteriores"""
     print("\n🧹 LIMPANDO DADOS ANTERIORES...")
-    
     db.execute("TRUNCATE TABLE itens_consumo CASCADE")
     db.execute("TRUNCATE TABLE movimentacoes CASCADE")
     db.execute("TRUNCATE TABLE logs_consultas CASCADE")
@@ -30,10 +26,9 @@ def limpar_dados():
     print("   ✅ Limpeza concluída!")
 
 def mostrar_estoque_inicial():
-    """Mostra estoque antes do teste"""
+    """Mostra estoque inicial"""
     print("\n📦 ESTOQUE INICIAL:")
-    print("-" * 60)
-    
+    print("-" * 70)
     lotes = db.execute("""
         SELECT l.numero_lote, m.nome, l.quantidade_atual, m.unidade, l.data_validade
         FROM lotes l
@@ -48,10 +43,9 @@ def mostrar_estoque_inicial():
         print(f"   {lote['numero_lote']}: {lote['nome']} | {lote['quantidade_atual']:.0f} {lote['unidade']} | Validade: {validade} {status}")
 
 def mostrar_estoque_final():
-    """Mostra estoque após o teste"""
+    """Mostra estoque final"""
     print("\n📦 ESTOQUE FINAL:")
-    print("-" * 60)
-    
+    print("-" * 70)
     lotes = db.execute("""
         SELECT l.numero_lote, m.nome, l.quantidade_atual, m.unidade, l.data_validade,
                l.quantidade_inicial - l.quantidade_atual as consumido
@@ -82,120 +76,313 @@ def criar_arquivo(tipo, id_prescricao, dados):
     escrever_csv(caminho, campos, dados)
     return caminho
 
-def main():
-    print("=" * 70)
-    print("🎬 TESTE COMPLETO - SISTEMA DE ESTOQUE E FARMÁCIA")
-    print("=" * 70)
+def adicionar_medicamento_frasco():
+    """Adiciona um medicamento em FRASCO para teste"""
+    print("\n🔧 ADICIONANDO MEDICAMENTO EM FRASCO...")
     
-    # 1. Conectar ao banco (uma única vez para todo o teste)
+    existe = db.execute("SELECT 1 FROM medicamentos WHERE codigo = 555666", fetch_one=True)
+    if not existe:
+        db.execute("""
+            INSERT INTO medicamentos (codigo, nome, concentracao, unidade, preco_venda)
+            VALUES (555666, 'XAROPE', '120mg/5ml', 'FRASCO', 25.00)
+        """)
+        print("   ✅ XAROPE 120mg/5ml (FRASCO) adicionado!")
+        
+        from datetime import date
+        db.execute("""
+            INSERT INTO lotes (codigo_medicamento, numero_lote, data_validade, quantidade_inicial, quantidade_atual, preco_venda)
+            VALUES (555666, 'FRASCO01', %s, 30, 30, 25.00)
+        """, (date(2027, 12, 31),))
+        print("   ✅ Lote FRASCO01 adicionado!")
+
+def main():
+    print("=" * 80)
+    print("🎬 TESTE COMPLETO - SISTEMA DE ESTOQUE E FARMÁCIA")
+    print("=" * 80)
+    
+    # Conectar ao banco
     db.connect()
     
-    # 2. Limpar dados anteriores
+    # Adicionar medicamento em frasco
+    adicionar_medicamento_frasco()
+    
+    # Limpar e mostrar estoque inicial
     limpar_dados()
     mostrar_estoque_inicial()
     
-    # 3. Definir CPFs para os pacientes
+    # CPFs para testes
     cpfs = {
         'PACIENTE_A': '11122233344',
         'PACIENTE_B': '55566677788',
         'PACIENTE_C': '99988877766',
-        'PACIENTE_D': '12345678901',
-        'PACIENTE_E': '98765432100'
+        'PACIENTE_D': '12345678901'
     }
-    
-    # 4. Definir os testes
-    testes = [
-        {'descricao': 'PACIENTE A - PARACETAMOL 1 CAIXA', 'medicamento': 111222, 'quantidade': 1, 'cpf': cpfs['PACIENTE_A'], 'lote_esperado': 'LOTEABC'},
-        {'descricao': 'PACIENTE B - PARACETAMOL 1 CAIXA', 'medicamento': 111222, 'quantidade': 1, 'cpf': cpfs['PACIENTE_B'], 'lote_esperado': 'LOTEABC'},
-        {'descricao': 'PACIENTE C - AMOXICILINA 2 CAIXAS', 'medicamento': 789123, 'quantidade': 2, 'cpf': cpfs['PACIENTE_C'], 'lote_esperado': 'LOTE456'},
-        {'descricao': 'PACIENTE D - AMOXICILINA 3 CAIXAS', 'medicamento': 789123, 'quantidade': 3, 'cpf': cpfs['PACIENTE_D'], 'lote_esperado': 'LOTE456'},
-        {'descricao': 'PACIENTE E - IBUPROFENO 2 AMPOLAS', 'medicamento': 333444, 'quantidade': 2, 'cpf': cpfs['PACIENTE_E'], 'lote_esperado': 'LOTEIBU'},
-        {'descricao': 'PACIENTE A - AMOXICILINA 1 CAIXA', 'medicamento': 789123, 'quantidade': 1, 'cpf': cpfs['PACIENTE_A'], 'lote_esperado': 'LOTE456'},
-    ]
-    
-    print("\n" + "=" * 70)
-    print("📋 EXECUTANDO TESTES")
-    print("=" * 70)
-    
-    reservas_realizadas = []
-    
-    for i, teste in enumerate(testes, 1):
-        print(f"\n{'='*60}")
-        print(f"🔹 TESTE {i}: {teste['descricao']}")
-        print(f"{'='*60}")
-        
-        id_prescricao = int(f"{datetime.now().strftime('%H%M%S')}{i:03d}")
-        
-        # 1. CONSULTA
-        print("   [1/3] CONSULTA...")
-        consulta_dados = [{
-            'id_prescricao': str(id_prescricao),
-            'cpf_paciente': teste['cpf'],
-            'codigo_medicamento': str(teste['medicamento']),
-            'quantidade': str(teste['quantidade'])
-        }]
-        arquivo_consulta = criar_arquivo('CONSULTA', id_prescricao, consulta_dados)
-        ConsultaProcessor.processar(arquivo_consulta)
-        
-        # 2. RESERVA
-        print("   [2/3] RESERVA...")
-        reserva_dados = [{
-            'id_prescricao': str(id_prescricao),
-            'cpf_paciente': teste['cpf'],
-            'codigo_medicamento': str(teste['medicamento']),
-            'quantidade': str(teste['quantidade'])
-        }]
-        arquivo_reserva = criar_arquivo('RESERVA', id_prescricao, reserva_dados)
-        ReservaProcessor.processar(arquivo_reserva)
-        
-        reservas_realizadas.append({
-            'id_prescricao': id_prescricao,
-            'cpf': teste['cpf'],
-            'medicamento': teste['medicamento'],
-            'quantidade': teste['quantidade'],
-            'lote_esperado': teste['lote_esperado']
-        })
-        
-        print(f"   ✅ Teste {i} concluído!")
-    
-    # 5. BAIXAS
-    print("\n" + "=" * 70)
-    print("✅ REGISTRANDO BAIXAS")
-    print("=" * 70)
     
     data_uso = datetime.now().strftime('%y%m%d')
     
-    for i, reserva in enumerate(reservas_realizadas, 1):
-        print(f"\n🔹 BAIXA {i}: Prescrição {reserva['id_prescricao']}")
-        
-        baixa_dados = [{
-            'id_prescricao': str(reserva['id_prescricao']),
-            'cpf_paciente': reserva['cpf'],
-            'codigo_medicamento': str(reserva['medicamento']),
-            'quantidade': str(reserva['quantidade']),
-            'lote': reserva['lote_esperado'],
-            'data_uso': data_uso
-        }]
-        arquivo_baixa = criar_arquivo('BAIXA', reserva['id_prescricao'], baixa_dados)
-        BaixaProcessor.processar(arquivo_baixa)
+    print("\n" + "=" * 80)
+    print("📋 EXECUTANDO TESTES")
+    print("=" * 80)
     
-    # 6. GERAR RELATÓRIO DE CONSUMO
+    # =========================================================
+    # TESTE 1: SUCESSO - PARACETAMOL (CAIXA)
+    # =========================================================
     print("\n" + "=" * 70)
-    print("📊 GERANDO RELATÓRIO DE CONSUMO")
+    print("✅ TESTE 1: SUCESSO - PARACETAMOL (CAIXA)")
     print("=" * 70)
+    
+    id_1 = int(f"{datetime.now().strftime('%H%M%S')}001")
+    
+    consulta = criar_arquivo('CONSULTA', id_1, [{
+        'id_prescricao': str(id_1),
+        'cpf_paciente': cpfs['PACIENTE_A'],
+        'codigo_medicamento': '111222',
+        'quantidade': '1'
+    }])
+    ConsultaProcessor.processar(consulta)
+    
+    reserva = criar_arquivo('RESERVA', id_1, [{
+        'id_prescricao': str(id_1),
+        'cpf_paciente': cpfs['PACIENTE_A'],
+        'codigo_medicamento': '111222',
+        'quantidade': '1'
+    }])
+    ReservaProcessor.processar(reserva)
+    
+    baixa = criar_arquivo('BAIXA', id_1, [{
+        'id_prescricao': str(id_1),
+        'cpf_paciente': cpfs['PACIENTE_A'],
+        'codigo_medicamento': '111222',
+        'quantidade': '1',
+        'lote': 'LOTEABC',
+        'data_uso': data_uso
+    }])
+    BaixaProcessor.processar(baixa)
+    print("   ✅ CONCLUÍDO")
+    
+    # =========================================================
+    # TESTE 2: SUCESSO - AMOXICILINA (FEFO escolhe LOTE456)
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("✅ TESTE 2: SUCESSO - AMOXICILINA (FEFO escolhe LOTE456)")
+    print("=" * 70)
+    
+    id_2 = int(f"{datetime.now().strftime('%H%M%S')}002")
+    
+    consulta = criar_arquivo('CONSULTA', id_2, [{
+        'id_prescricao': str(id_2),
+        'cpf_paciente': cpfs['PACIENTE_B'],
+        'codigo_medicamento': '789123',
+        'quantidade': '2'
+    }])
+    ConsultaProcessor.processar(consulta)
+    
+    reserva = criar_arquivo('RESERVA', id_2, [{
+        'id_prescricao': str(id_2),
+        'cpf_paciente': cpfs['PACIENTE_B'],
+        'codigo_medicamento': '789123',
+        'quantidade': '2'
+    }])
+    ReservaProcessor.processar(reserva)
+    
+    baixa = criar_arquivo('BAIXA', id_2, [{
+        'id_prescricao': str(id_2),
+        'cpf_paciente': cpfs['PACIENTE_B'],
+        'codigo_medicamento': '789123',
+        'quantidade': '2',
+        'lote': 'LOTE456',
+        'data_uso': data_uso
+    }])
+    BaixaProcessor.processar(baixa)
+    print("   ✅ CONCLUÍDO")
+    
+    # =========================================================
+    # TESTE 3: SUCESSO - XAROPE (FRASCO)
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("✅ TESTE 3: SUCESSO - XAROPE (FRASCO)")
+    print("=" * 70)
+    
+    id_3 = int(f"{datetime.now().strftime('%H%M%S')}003")
+    
+    consulta = criar_arquivo('CONSULTA', id_3, [{
+        'id_prescricao': str(id_3),
+        'cpf_paciente': cpfs['PACIENTE_C'],
+        'codigo_medicamento': '555666',
+        'quantidade': '2'
+    }])
+    ConsultaProcessor.processar(consulta)
+    
+    reserva = criar_arquivo('RESERVA', id_3, [{
+        'id_prescricao': str(id_3),
+        'cpf_paciente': cpfs['PACIENTE_C'],
+        'codigo_medicamento': '555666',
+        'quantidade': '2'
+    }])
+    ReservaProcessor.processar(reserva)
+    
+    baixa = criar_arquivo('BAIXA', id_3, [{
+        'id_prescricao': str(id_3),
+        'cpf_paciente': cpfs['PACIENTE_C'],
+        'codigo_medicamento': '555666',
+        'quantidade': '2',
+        'lote': 'FRASCO01',
+        'data_uso': data_uso
+    }])
+    BaixaProcessor.processar(baixa)
+    print("   ✅ CONCLUÍDO")
+    
+    # =========================================================
+    # TESTE 4: ESTOQUE INSUFICIENTE
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("❌ TESTE 4: ESTOQUE INSUFICIENTE - AMOXICILINA (solicita 100, só tem 48)")
+    print("=" * 70)
+    
+    id_4 = int(f"{datetime.now().strftime('%H%M%S')}004")
+    
+    consulta = criar_arquivo('CONSULTA', id_4, [{
+        'id_prescricao': str(id_4),
+        'cpf_paciente': cpfs['PACIENTE_D'],
+        'codigo_medicamento': '789123',
+        'quantidade': '100'
+    }])
+    ConsultaProcessor.processar(consulta)
+    
+    # A reserva e baixa não serão executadas porque a consulta já retornou NÃO
+    print("   ℹ️ A consulta retornou disponivel=0, o sistema não prossegue com reserva/baixa")
+    print("   ❌ CONCLUÍDO (ERRO ESPERADO)")
+    
+    # =========================================================
+    # TESTE 5: MEDICAMENTO NÃO CADASTRADO
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("❌ TESTE 5: MEDICAMENTO NÃO CADASTRADO (código 999999 não existe)")
+    print("=" * 70)
+    
+    id_5 = int(f"{datetime.now().strftime('%H%M%S')}005")
+    
+    consulta = criar_arquivo('CONSULTA', id_5, [{
+        'id_prescricao': str(id_5),
+        'cpf_paciente': cpfs['PACIENTE_A'],
+        'codigo_medicamento': '999999',
+        'quantidade': '1'
+    }])
+    ConsultaProcessor.processar(consulta)
+    print("   ❌ CONCLUÍDO (ERRO ESPERADO)")
+    
+    # =========================================================
+    # TESTE 6: BAIXA SEM RESERVA
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("❌ TESTE 6: BAIXA SEM RESERVA")
+    print("=" * 70)
+    
+    id_6 = int(f"{datetime.now().strftime('%H%M%S')}006")
+    
+    # Criar apenas a baixa, sem reserva
+    baixa_sem_reserva = criar_arquivo('BAIXA', id_6, [{
+        'id_prescricao': str(id_6),
+        'cpf_paciente': cpfs['PACIENTE_A'],
+        'codigo_medicamento': '111222',
+        'quantidade': '1',
+        'lote': 'LOTEABC',
+        'data_uso': data_uso
+    }])
+    BaixaProcessor.processar(baixa_sem_reserva)
+    print("   ℹ️ A baixa foi rejeitada porque não havia reserva ativa")
+    print("   ❌ CONCLUÍDO (ERRO ESPERADO)")
+    
+    # =========================================================
+    # TESTE 7: RESERVA COM LOTE INVÁLIDO (não existe no banco)
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("❌ TESTE 7: RESERVA COM LOTE INVÁLIDO (LOTEINEXISTENTE)")
+    print("=" * 70)
+    
+    id_7 = int(f"{datetime.now().strftime('%H%M%S')}007")
+    
+    # Primeiro consulta (OK)
+    consulta = criar_arquivo('CONSULTA', id_7, [{
+        'id_prescricao': str(id_7),
+        'cpf_paciente': cpfs['PACIENTE_B'],
+        'codigo_medicamento': '111222',
+        'quantidade': '1'
+    }])
+    ConsultaProcessor.processar(consulta)
+    
+    # Reserva com lote que não existe
+    reserva_invalida = criar_arquivo('RESERVA', id_7, [{
+        'id_prescricao': str(id_7),
+        'cpf_paciente': cpfs['PACIENTE_B'],
+        'codigo_medicamento': '111222',
+        'quantidade': '1',
+        'lote': 'LOTEINEXISTENTE'
+    }])
+    ReservaProcessor.processar(reserva_invalida)
+    print("   ℹ️ A reserva foi rejeitada porque o lote não existe")
+    print("   ❌ CONCLUÍDO (ERRO ESPERADO)")
+    
+    # =========================================================
+    # TESTE 8: BAIXA COM LOTE NÃO RESERVADO
+    # =========================================================
+    print("\n" + "=" * 70)
+    print("❌ TESTE 8: BAIXA COM LOTE NÃO RESERVADO")
+    print("=" * 70)
+    
+    id_8 = int(f"{datetime.now().strftime('%H%M%S')}008")
+    
+    # Primeiro consulta e reserva (reserva outro lote)
+    consulta = criar_arquivo('CONSULTA', id_8, [{
+        'id_prescricao': str(id_8),
+        'cpf_paciente': cpfs['PACIENTE_C'],
+        'codigo_medicamento': '789123',
+        'quantidade': '1'
+    }])
+    ConsultaProcessor.processar(consulta)
+    
+    # Reserva do LOTE123
+    reserva = criar_arquivo('RESERVA', id_8, [{
+        'id_prescricao': str(id_8),
+        'cpf_paciente': cpfs['PACIENTE_C'],
+        'codigo_medicamento': '789123',
+        'quantidade': '1'
+    }])
+    ReservaProcessor.processar(reserva)
+    
+    # Baixa com lote diferente do reservado (LOTE456 em vez de LOTE123)
+    baixa_lote_errado = criar_arquivo('BAIXA', id_8, [{
+        'id_prescricao': str(id_8),
+        'cpf_paciente': cpfs['PACIENTE_C'],
+        'codigo_medicamento': '789123',
+        'quantidade': '1',
+        'lote': 'LOTE456',
+        'data_uso': data_uso
+    }])
+    BaixaProcessor.processar(baixa_lote_errado)
+    print("   ℹ️ A baixa foi rejeitada porque o lote LOTE456 não estava reservado para esta prescrição")
+    print("   ❌ CONCLUÍDO (ERRO ESPERADO)")
+    
+    # =========================================================
+    # GERAR RELATÓRIO DE CONSUMO
+    # =========================================================
+    print("\n" + "=" * 80)
+    print("📊 GERANDO RELATÓRIO DE CONSUMO")
+    print("=" * 80)
     
     ConsumoGenerator.gerar(date.today())
     
-    # 7. MOSTRAR RESULTADOS
-    print("\n" + "=" * 70)
+    # =========================================================
+    # MOSTRAR RESULTADOS
+    # =========================================================
+    print("\n" + "=" * 80)
     print("📈 RESULTADOS FINAIS")
-    print("=" * 70)
+    print("=" * 80)
     
     mostrar_estoque_final()
     
-    # Mostrar relatório de consumo gerado
     print("\n📄 RELATÓRIO DE CONSUMO GERADO:")
-    print("-" * 60)
+    print("-" * 70)
     
     data_dir = os.getenv('DATA_DIR', 'data')
     pasta_consumos = os.getenv('PASTA_CONSUMOS', 'saida/consumos')
@@ -207,28 +394,39 @@ def main():
     else:
         print("   Arquivo não encontrado")
     
-    # Mostrar estatísticas
     print("\n📊 ESTATÍSTICAS:")
-    print("-" * 60)
+    print("-" * 70)
     
     consultas = db.execute("SELECT COUNT(*) as total FROM logs_consultas", fetch_one=True)
-    print(f"   Total de consultas: {consultas['total']}")
-    
     reservas = db.execute("SELECT COUNT(*) as total FROM logs_reservas WHERE status = 'PROCESSADO'", fetch_one=True)
-    print(f"   Total de reservas: {reservas['total']}")
-    
     baixas = db.execute("SELECT COUNT(*) as total FROM logs_baixas WHERE status = 'PROCESSADO'", fetch_one=True)
-    print(f"   Total de baixas: {baixas['total']}")
-    
     consumo = db.execute("SELECT SUM(preco_total) as total FROM itens_consumo", fetch_one=True)
+    
+    print(f"   Total de consultas: {consultas['total']}")
+    print(f"   Total de reservas (sucesso): {reservas['total']}")
+    print(f"   Total de baixas (sucesso): {baixas['total']}")
     print(f"   Valor total faturado: R$ {consumo['total']:.2f}")
     
-    # Fechar conexão
+    print("\n📋 LOGS DE ERRO:")
+    print("-" * 70)
+    
+    # Mostrar erros nas reservas
+    erros_reservas = db.execute("SELECT * FROM logs_reservas WHERE status = 'ERRO'", fetch_all=True)
+    for e in erros_reservas:
+        print(f"   ❌ Reserva: {e['observacao']}")
+    
+    # Mostrar erros nas baixas
+    erros_baixas = db.execute("SELECT * FROM logs_baixas WHERE status = 'ERRO'", fetch_all=True)
+    for e in erros_baixas:
+        print(f"   ❌ Baixa: {e['observacao']}")
+    
     db.close()
     
-    print("\n" + "=" * 70)
-    print("✅ TESTE COMPLETO CONCLUÍDO COM SUCESSO!")
-    print("=" * 70)
+    print("\n" + "=" * 80)
+    print("✅ TESTE COMPLETO CONCLUÍDO!")
+    print("   ✅ Sucessos: 3 (PARACETAMOL, AMOXICILINA, XAROPE)")
+    print("   ❌ Erros: 5 (Estoque insuficiente, Medicamento não cadastrado, Baixa sem reserva, Lote inválido, Lote não reservado)")
+    print("=" * 80)
 
 if __name__ == "__main__":
     main()

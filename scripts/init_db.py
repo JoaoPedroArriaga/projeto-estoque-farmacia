@@ -72,27 +72,23 @@ def criar_tabelas():
         db.close()
 
 def inserir_dados_exemplo():
-    """Insere dados de exemplo para teste"""
+    """Insere dados de exemplo padronizados"""
     from src.config.database import db
     from src.models.lote import Lote
+    from datetime import date
     
     try:
         db.connect()
         
-        # Verificar se já tem medicamentos
-        medicamentos = db.execute("SELECT COUNT(*) as total FROM medicamentos", fetch_one=True)
-        if medicamentos and medicamentos['total'] > 0:
-            print("ℹ️ Dados de exemplo já existem")
-            return True
-        
         print("\n📦 Inserindo medicamentos de exemplo...")
         
-        # Medicamentos com unidades corretas
+        # Medicamentos padronizados
         medicamentos_data = [
             (789123, 'AMOXICILINA', '500mg', 'CAIXA', 15.50),
             (456789, 'DIPIRONA', '500mg', 'CAIXA', 8.20),
             (111222, 'PARACETAMOL', '750mg', 'CAIXA', 12.00),
             (333444, 'IBUPROFENO', '600mg', 'AMPOLA', 18.50),
+            (555666, 'CODEÍNA', '120mg/5ml', 'FRASCO', 25.00),
         ]
         
         for codigo, nome, concentracao, unidade, preco in medicamentos_data:
@@ -103,15 +99,16 @@ def inserir_dados_exemplo():
             )
             print(f"   ✅ {nome} {concentracao} ({unidade}) - R$ {preco:.2f}")
         
-        print("\n📦 Inserindo lotes de exemplo...")
-        from datetime import date
+        print("\n📦 Inserindo lotes de exemplo padronizados...")
         
+        # Lotes padronizados (LOTE001 a LOTE006)
         lotes_data = [
-            (789123, 'LOTE123', date(2027, 12, 31), 100, 15.50),
-            (789123, 'LOTE456', date(2027, 6, 30), 50, 15.50),
-            (456789, 'LOTE789', date(2027, 12, 31), 200, 8.20),
-            (111222, 'LOTEABC', date(2027, 3, 31), 75, 12.00),
-            (333444, 'LOTEIBU', date(2027, 12, 31), 50, 18.50),
+            (789123, 'LOTE001', date(2027, 12, 31), 100, 15.50),  # AMOXICILINA
+            (789123, 'LOTE002', date(2027, 6, 30), 50, 15.50),   # AMOXICILINA (menor validade)
+            (456789, 'LOTE003', date(2027, 12, 31), 200, 8.20),   # DIPIRONA
+            (111222, 'LOTE004', date(2027, 3, 31), 75, 12.00),    # PARACETAMOL
+            (333444, 'LOTE005', date(2027, 12, 31), 50, 18.50),   # IBUPROFENO
+            (555666, 'LOTE006', date(2027, 12, 31), 30, 25.00),   # CODEÍNA
         ]
         
         for codigo, lote, validade, qtd, preco in lotes_data:
@@ -136,20 +133,18 @@ def mostrar_status():
         medicamentos = db.execute("SELECT COUNT(*) as total FROM medicamentos", fetch_one=True)
         lotes = db.execute("SELECT COUNT(*) as total FROM lotes", fetch_all=True)
         
-        print("\n" + "=" * 50)
+        print("\n" + "=" * 60)
         print("📊 STATUS DO BANCO")
-        print("=" * 50)
+        print("=" * 60)
         print(f"   Medicamentos: {medicamentos['total']}")
         print(f"   Lotes: {len(lotes)}")
-        print("=" * 50)
+        print("=" * 60)
         
-        # Mostrar medicamentos
         print("\n💊 MEDICAMENTOS:")
         meds = db.execute("SELECT codigo, nome, unidade, preco_venda FROM medicamentos ORDER BY codigo", fetch_all=True)
         for m in meds:
             print(f"   - {m['codigo']}: {m['nome']} ({m['unidade']}) - R$ {m['preco_venda']:.2f}")
         
-        # Mostrar lotes
         print("\n📦 LOTES:")
         lotes_list = db.execute("""
             SELECT l.numero_lote, m.nome, l.quantidade_atual, m.unidade, l.data_validade
@@ -158,7 +153,7 @@ def mostrar_status():
             ORDER BY l.numero_lote
         """, fetch_all=True)
         for lote in lotes_list:
-            print(f"   - {lote['numero_lote']}: {lote['nome']} | {lote['quantidade_atual']} {lote['unidade']} | Validade: {lote['data_validade']}")
+            print(f"   - {lote['numero_lote']}: {lote['nome']} | {lote['quantidade_atual']:.0f} {lote['unidade']} | Validade: {lote['data_validade']}")
         
     except Exception as e:
         print(f"❌ Erro ao verificar status: {e}")

@@ -2,6 +2,7 @@
 -- SISTEMA DE ESTOQUE E FARMÁCIA - GRUPO 3
 -- BANCO DE DADOS POSTGRESQL
 -- SCHEMA: projeto
+-- VERSÃO SIMPLIFICADA (APENAS COLUNAS USADAS)
 -- =============================================
 
 -- Criar schema
@@ -15,10 +16,7 @@ CREATE SCHEMA IF NOT EXISTS projeto;
 CREATE TABLE IF NOT EXISTS projeto.medicamentos (
     codigo NUMERIC(20) PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
-    principio_ativo VARCHAR(100),
     concentracao VARCHAR(30),
-    forma_farmaceutica VARCHAR(30),
-    controlado BOOLEAN DEFAULT FALSE,
     unidade VARCHAR(20) DEFAULT 'CAIXA',
     preco_venda NUMERIC(10,2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -29,11 +27,9 @@ CREATE TABLE IF NOT EXISTS projeto.lotes (
     id_lote SERIAL PRIMARY KEY,
     codigo_medicamento NUMERIC(20) NOT NULL REFERENCES projeto.medicamentos(codigo) ON DELETE RESTRICT,
     numero_lote VARCHAR(30) NOT NULL,
-    data_fabricacao DATE,
     data_validade DATE NOT NULL,
     quantidade_inicial NUMERIC(6,3) NOT NULL,
     quantidade_atual NUMERIC(6,3) NOT NULL,
-    preco_compra NUMERIC(10,2),
     preco_venda NUMERIC(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(codigo_medicamento, numero_lote)
@@ -52,11 +48,8 @@ CREATE TABLE IF NOT EXISTS projeto.logs_consultas (
     codigo_medicamento NUMERIC(20) NOT NULL,
     quantidade NUMERIC(6,3) NOT NULL,
     disponivel BOOLEAN,
-    lote_sugerido VARCHAR(30),
-    validade_lote DATE,
     observacao VARCHAR(200),
-    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Log das reservas recebidas do G2 (Laudos)
@@ -67,12 +60,11 @@ CREATE TABLE IF NOT EXISTS projeto.logs_reservas (
     cpf_paciente NUMERIC(11) NOT NULL,
     codigo_medicamento NUMERIC(20) NOT NULL,
     quantidade NUMERIC(6,3) NOT NULL,
-    lote VARCHAR(30) NOT NULL,
+    lote VARCHAR(30),
     id_lote INTEGER REFERENCES projeto.lotes(id_lote),
     status VARCHAR(20) DEFAULT 'PROCESSADO' CHECK (status IN ('PROCESSADO', 'ERRO')),
     observacao VARCHAR(200),
-    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Log das baixas recebidas do G2 (Laudos)
@@ -83,13 +75,12 @@ CREATE TABLE IF NOT EXISTS projeto.logs_baixas (
     cpf_paciente NUMERIC(11) NOT NULL,
     codigo_medicamento NUMERIC(20) NOT NULL,
     quantidade NUMERIC(6,3) NOT NULL,
-    lote VARCHAR(30) NOT NULL,
+    lote VARCHAR(30),
     data_uso NUMERIC(6),
     id_lote INTEGER REFERENCES projeto.lotes(id_lote),
     status VARCHAR(20) DEFAULT 'PROCESSADO' CHECK (status IN ('PROCESSADO', 'ERRO')),
     observacao VARCHAR(200),
-    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Log dos consumos enviados para o G1 (Financeiro)
@@ -117,8 +108,7 @@ CREATE TABLE IF NOT EXISTS projeto.reservas_ativas (
     id_lote INTEGER NOT NULL REFERENCES projeto.lotes(id_lote),
     status VARCHAR(20) DEFAULT 'RESERVADO' CHECK (status IN ('RESERVADO', 'UTILIZADO', 'CANCELADO')),
     data_reserva TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    data_utilizacao TIMESTAMP,
-    data_cancelamento TIMESTAMP
+    data_utilizacao TIMESTAMP
 );
 
 -- =============================================
@@ -149,9 +139,9 @@ CREATE TABLE IF NOT EXISTS projeto.itens_consumo (
     preco_total NUMERIC(10,2) NOT NULL,
     data_uso NUMERIC(6) NOT NULL,
     lote VARCHAR(30) NOT NULL,
+    unidade VARCHAR(20),
     id_lote INTEGER REFERENCES projeto.lotes(id_lote),
     id_baixa_log INTEGER REFERENCES projeto.logs_baixas(id_log),
-    unidade VARCHAR(20),
     consolidado_em DATE DEFAULT CURRENT_DATE,
     enviado_para_g1 BOOLEAN DEFAULT FALSE,
     enviado_em TIMESTAMP
@@ -170,9 +160,6 @@ CREATE INDEX IF NOT EXISTS idx_lotes_quantidade ON projeto.lotes(quantidade_atua
 CREATE INDEX IF NOT EXISTS idx_logs_consultas_data ON projeto.logs_consultas(data_recebimento);
 CREATE INDEX IF NOT EXISTS idx_logs_reservas_data ON projeto.logs_reservas(data_recebimento);
 CREATE INDEX IF NOT EXISTS idx_logs_baixas_data ON projeto.logs_baixas(data_recebimento);
-CREATE INDEX IF NOT EXISTS idx_logs_consultas_prescricao ON projeto.logs_consultas(id_prescricao);
-CREATE INDEX IF NOT EXISTS idx_logs_reservas_prescricao ON projeto.logs_reservas(id_prescricao);
-CREATE INDEX IF NOT EXISTS idx_logs_baixas_prescricao ON projeto.logs_baixas(id_prescricao);
 
 -- Índices reservas ativas
 CREATE INDEX IF NOT EXISTS idx_reservas_ativas_status ON projeto.reservas_ativas(status);
@@ -183,7 +170,6 @@ CREATE INDEX IF NOT EXISTS idx_movimentacoes_data ON projeto.movimentacoes(data_
 CREATE INDEX IF NOT EXISTS idx_movimentacoes_lote ON projeto.movimentacoes(id_lote);
 CREATE INDEX IF NOT EXISTS idx_itens_consumo_data ON projeto.itens_consumo(consolidado_em);
 CREATE INDEX IF NOT EXISTS idx_itens_consumo_enviado ON projeto.itens_consumo(enviado_para_g1);
-CREATE INDEX IF NOT EXISTS idx_itens_consumo_prescricao ON projeto.itens_consumo(id_prescricao);
 
 -- =============================================
 -- 6. CONCESSÃO DE PERMISSÕES
