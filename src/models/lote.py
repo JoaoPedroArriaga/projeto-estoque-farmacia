@@ -22,7 +22,11 @@ class Lote:
     @staticmethod
     def buscar_disponivel(codigo_medicamento, quantidade):
         """Busca lote disponível seguindo FEFO"""
-        return db.execute(
+        print("      📊 [DEBUG] Executando SQL:")
+        print(f"         - Medicamento: {codigo_medicamento}")
+        print(f"         - Quantidade mínima: {quantidade}")
+        
+        result = db.execute(
             """SELECT * FROM lotes 
                WHERE codigo_medicamento = %s 
                  AND quantidade_atual >= %s 
@@ -32,16 +36,34 @@ class Lote:
             (codigo_medicamento, quantidade),
             fetch_one=True
         )
+        
+        if result:
+            print(f"      📊 [DEBUG] Resultado: Lote {result['numero_lote']} com {result['quantidade_atual']} unidades")
+        else:
+            print("      📊 [DEBUG] Resultado: Nenhum lote encontrado")
+        
+        return result
     
     @staticmethod
     def buscar_por_lote(codigo_medicamento, numero_lote):
-        return db.execute(
+        print("      📊 [DEBUG] Buscando lote específico:")
+        print(f"         - Medicamento: {codigo_medicamento}")
+        print(f"         - Lote: {numero_lote}")
+        
+        result = db.execute(
             """SELECT * FROM lotes 
                WHERE codigo_medicamento = %s 
                  AND numero_lote = %s""",
             (codigo_medicamento, numero_lote),
             fetch_one=True
         )
+        
+        if result:
+            print(f"      📊 [DEBUG] Lote encontrado: {result['numero_lote']}")
+        else:
+            print("      📊 [DEBUG] Lote não encontrado")
+        
+        return result
     
     @staticmethod
     def buscar_com_lock(id_lote):
@@ -53,6 +75,10 @@ class Lote:
     
     @staticmethod
     def atualizar_estoque(id_lote, nova_quantidade):
+        print("      📊 [DEBUG] Atualizando estoque:")
+        print(f"         - ID Lote: {id_lote}")
+        print(f"         - Nova quantidade: {nova_quantidade}")
+        
         return db.execute(
             "UPDATE lotes SET quantidade_atual = %s WHERE id_lote = %s",
             (nova_quantidade, id_lote)

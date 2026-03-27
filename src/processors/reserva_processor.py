@@ -1,13 +1,14 @@
 import os
 from src.utils.csv_utils import ler_csv, mover_para_processados
 from src.models.logs import LogReserva
-from src.services.estoque_service import EstoqueService
+from src.models.lote import Lote
+from src.models.reserva_ativa import ReservaAtiva
 
 class ReservaProcessor:
     
     @staticmethod
     def processar(caminho_arquivo):
-        """Processa um arquivo de reserva"""
+        """Processa um arquivo de reserva (sem lote - G3 aplica FEFO)"""
         print(f"📄 Processando reserva: {caminho_arquivo}")
         
         # 1. Ler CSV
@@ -17,32 +18,40 @@ class ReservaProcessor:
         
         # 2. Processar cada linha
         for row in dados:
-            id_prescricao = int(row['id_prescricao'])           # <-- INT
-            cpf_paciente = int(row['cpf_paciente'])             # <-- INT
-            codigo_medicamento = int(row['codigo_medicamento']) # <-- INT
-            quantidade = float(row['quantidade'])               # <-- FLOAT
-            lote_numero = row['lote']
+            id_prescricao = int(row['id_prescricao'])
+            cpf_paciente = int(row['cpf_paciente'])
+            codigo_medicamento = int(row['codigo_medicamento'])
+            quantidade = float(row['quantidade'])
             
-            # Valida a reserva
-            resultado = EstoqueService.reservar_lote(
-                codigo_medicamento, quantidade, lote_numero
+            # Buscar o melhor lote disponível (FEFO - menor validade)
+            lote_disponivel = Lote.buscar_disponivel(codigo_medicamento, quantidade)
+            
+            if not lote_disponivel:
+                print(f"   ❌ [DEBUG] Nenhum lote disponível para medicamento {codigo_medicamento}")
+                LogReserva.registrar(
+                    os.path.basename(caminho_arquivo),
+                    id_prescricao, cpf_paciente, codigo_medicamento,
+                    quantidade, None, None,
+                    'ERRO', 'Nenhum lote disponível'
+                )
+                continue
+            
+            lote_numero = lote_disponivel['numero_lote']
+            id_lote = lote_disponivel['id_lote']
+            
+            # Criar reserva ativa com o lote escolhido pelo FEFO
+            ReservaAtiva.criar(
+                id_prescricao, cpf_paciente, codigo_medicamento,
+                quantidade, lote_numero, id_lote
             )
             
-            # Registra no log
-            if resultado['success']:
-                LogReserva.registrar(
-                    os.path.basename(caminho_arquivo),
-                    id_prescricao, cpf_paciente, codigo_medicamento,
-                    quantidade, lote_numero, resultado['id_lote'],
-                    'PROCESSADO', 'Reserva realizada'
-                )
-            else:
-                LogReserva.registrar(
-                    os.path.basename(caminho_arquivo),
-                    id_prescricao, cpf_paciente, codigo_medicamento,
-                    quantidade, lote_numero, None,
-                    'ERRO', resultado['error']
-                )
+            LogReserva.registrar(
+                os.path.basename(caminho_arquivo),
+                id_prescricao, cpf_paciente, codigo_medicamento,
+                quantidade, lote_numero, id_lote,
+                'PROCESSADO', f'Reserva realizada com lote {lote_numero} (FEFO)'
+            )
+            print(f"   ✅ [DEBUG] Reserva ativa criada para lote {lote_numero} (FEFO)")
         
         # 3. Mover arquivo original para processados
         mover_para_processados(caminho_arquivo, 'reservas')

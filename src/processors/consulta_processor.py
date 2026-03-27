@@ -18,13 +18,20 @@ class ConsultaProcessor:
         if not dados:
             return False
         
+        print(f"   📋 [DEBUG] Dados lidos: {len(dados)} linha(s)")
+        
+        # Pega o ID da prescrição da primeira linha
+        id_prescricao_principal = dados[0]['id_prescricao']
+        
         # 2. Processar cada linha
         respostas = []
-        for row in dados:
-            id_prescricao = int(row['id_prescricao'])           # <-- INT
-            cpf_paciente = int(row['cpf_paciente'])             # <-- INT
-            codigo_medicamento = int(row['codigo_medicamento']) # <-- INT
-            quantidade = float(row['quantidade'])               # <-- FLOAT
+        for idx, row in enumerate(dados):
+            print(f"   📋 [DEBUG] Processando linha {idx + 1}: {row}")
+            
+            id_prescricao = int(row['id_prescricao'])
+            cpf_paciente = int(row['cpf_paciente'])
+            codigo_medicamento = int(row['codigo_medicamento'])
+            quantidade = float(row['quantidade'])
             
             # Verifica disponibilidade
             resultado = EstoqueService.verificar_disponibilidade(
@@ -39,28 +46,28 @@ class ConsultaProcessor:
                 codigo_medicamento,
                 quantidade, 
                 resultado['disponivel'], 
-                resultado['lote'],
-                resultado['validade'], 
+                None,
+                None,
                 'Disponível' if resultado['disponivel'] else 'Estoque insuficiente'
             )
             
-            # Monta resposta
+            # Monta resposta (disponivel = 1 ou 0)
             respostas.append({
                 'codigo_medicamento': codigo_medicamento,
-                'disponivel': 'SIM' if resultado['disponivel'] else 'NAO',
-                'lote_sugerido': resultado['lote'] or '',
-                'validade': resultado['validade'] or '',
-                'motivo': '' if resultado['disponivel'] else 'Estoque insuficiente'
+                'disponivel': 1 if resultado['disponivel'] else 0,
+                'observacao': '' if resultado['disponivel'] else 'Estoque insuficiente'
             })
+            
+            print(f"   📋 [DEBUG] Resposta gerada: disponivel={1 if resultado['disponivel'] else 0}")
         
         # 3. Gerar arquivo de resposta
-        nome_resposta = gerar_nome_arquivo('RESPOSTA')
+        nome_resposta = gerar_nome_arquivo('RESPOSTA', id_prescricao_principal)
         
         data_dir = os.getenv('DATA_DIR', 'data')
         pasta_respostas = os.getenv('PASTA_RESPOSTAS', 'saida/respostas')
         caminho_resposta = os.path.join(data_dir, pasta_respostas, nome_resposta)
         
-        campos = ['codigo_medicamento', 'disponivel', 'lote_sugerido', 'validade', 'motivo']
+        campos = ['codigo_medicamento', 'disponivel', 'observacao']
         escrever_csv(caminho_resposta, campos, respostas)
         
         # 4. Mover arquivo original para processados

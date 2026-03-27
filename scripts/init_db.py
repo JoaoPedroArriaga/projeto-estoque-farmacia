@@ -8,7 +8,7 @@ import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from dotenv import load_dotenv
 
-# Adiciona o diretório raiz ao path CORRETAMENTE
+# Adiciona o diretório raiz ao path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
@@ -20,7 +20,7 @@ def criar_banco():
     db_port = os.getenv('DB_PORT', '5432')
     db_user = os.getenv('DB_USER', 'postgres')
     db_password = os.getenv('DB_PASSWORD', 'postgres')
-    db_name = os.getenv('DB_NAME', 'estoque_farmacia')
+    db_name = os.getenv('DB_NAME', 'Interoperabilidade')
     
     try:
         conn = psycopg2.connect(
@@ -74,34 +74,51 @@ def criar_tabelas():
 def inserir_dados_exemplo():
     """Insere dados de exemplo para teste"""
     from src.config.database import db
-    from src.models.medicamento import Medicamento
     from src.models.lote import Lote
     
     try:
         db.connect()
         
-        # Verificar se já tem dados
-        medicamentos = Medicamento.listar_todos()
-        if medicamentos:
+        # Verificar se já tem medicamentos
+        medicamentos = db.execute("SELECT COUNT(*) as total FROM medicamentos", fetch_one=True)
+        if medicamentos and medicamentos['total'] > 0:
             print("ℹ️ Dados de exemplo já existem")
             return True
         
-        # Inserir medicamentos
-        print("📦 Inserindo medicamentos de exemplo...")
-        Medicamento.criar(789123, 'AMOXICILINA 500MG')
-        Medicamento.criar(456789, 'DIPIRONA 500MG')
-        Medicamento.criar(111222, 'PARACETAMOL 750MG')
-        Medicamento.criar(333444, 'IBUPROFENO 600MG')
+        print("\n📦 Inserindo medicamentos de exemplo...")
         
-        # Inserir lotes
-        print("📦 Inserindo lotes de exemplo...")
+        # Medicamentos com unidades corretas
+        medicamentos_data = [
+            (789123, 'AMOXICILINA', '500mg', 'CAIXA', 15.50),
+            (456789, 'DIPIRONA', '500mg', 'CAIXA', 8.20),
+            (111222, 'PARACETAMOL', '750mg', 'CAIXA', 12.00),
+            (333444, 'IBUPROFENO', '600mg', 'AMPOLA', 18.50),
+        ]
+        
+        for codigo, nome, concentracao, unidade, preco in medicamentos_data:
+            db.execute(
+                """INSERT INTO medicamentos (codigo, nome, concentracao, unidade, preco_venda) 
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (codigo, nome, concentracao, unidade, preco)
+            )
+            print(f"   ✅ {nome} {concentracao} ({unidade}) - R$ {preco:.2f}")
+        
+        print("\n📦 Inserindo lotes de exemplo...")
         from datetime import date
-        Lote.criar(789123, 'LOTE123', date(2025, 12, 31), 100, 15.50)
-        Lote.criar(789123, 'LOTE456', date(2025, 6, 30), 50, 15.50)
-        Lote.criar(456789, 'LOTE789', date(2025, 12, 31), 200, 8.20)
-        Lote.criar(111222, 'LOTEABC', date(2025, 3, 31), 75, 12.00)
         
-        print("✅ Dados de exemplo inseridos")
+        lotes_data = [
+            (789123, 'LOTE123', date(2027, 12, 31), 100, 15.50),
+            (789123, 'LOTE456', date(2027, 6, 30), 50, 15.50),
+            (456789, 'LOTE789', date(2027, 12, 31), 200, 8.20),
+            (111222, 'LOTEABC', date(2027, 3, 31), 75, 12.00),
+            (333444, 'LOTEIBU', date(2027, 12, 31), 50, 18.50),
+        ]
+        
+        for codigo, lote, validade, qtd, preco in lotes_data:
+            Lote.criar(codigo, lote, validade, qtd, preco)
+            print(f"   ✅ Lote {lote}: {qtd} unidades - R$ {preco:.2f}")
+        
+        print("\n✅ Dados de exemplo inseridos com sucesso!")
         return True
     except Exception as e:
         print(f"❌ Erro ao inserir dados: {e}")
@@ -109,11 +126,55 @@ def inserir_dados_exemplo():
     finally:
         db.close()
 
+def mostrar_status():
+    """Mostra status após inicialização"""
+    from src.config.database import db
+    
+    try:
+        db.connect()
+        
+        medicamentos = db.execute("SELECT COUNT(*) as total FROM medicamentos", fetch_one=True)
+        lotes = db.execute("SELECT COUNT(*) as total FROM lotes", fetch_all=True)
+        
+        print("\n" + "=" * 50)
+        print("📊 STATUS DO BANCO")
+        print("=" * 50)
+        print(f"   Medicamentos: {medicamentos['total']}")
+        print(f"   Lotes: {len(lotes)}")
+        print("=" * 50)
+        
+        # Mostrar medicamentos
+        print("\n💊 MEDICAMENTOS:")
+        meds = db.execute("SELECT codigo, nome, unidade, preco_venda FROM medicamentos ORDER BY codigo", fetch_all=True)
+        for m in meds:
+            print(f"   - {m['codigo']}: {m['nome']} ({m['unidade']}) - R$ {m['preco_venda']:.2f}")
+        
+        # Mostrar lotes
+        print("\n📦 LOTES:")
+        lotes_list = db.execute("""
+            SELECT l.numero_lote, m.nome, l.quantidade_atual, m.unidade, l.data_validade
+            FROM lotes l
+            JOIN medicamentos m ON m.codigo = l.codigo_medicamento
+            ORDER BY l.numero_lote
+        """, fetch_all=True)
+        for lote in lotes_list:
+            print(f"   - {lote['numero_lote']}: {lote['nome']} | {lote['quantidade_atual']} {lote['unidade']} | Validade: {lote['data_validade']}")
+        
+    except Exception as e:
+        print(f"❌ Erro ao verificar status: {e}")
+    finally:
+        db.close()
+
 if __name__ == "__main__":
-    print("=== INICIANDO SETUP DO BANCO ===\n")
+    print("=" * 60)
+    print("🚀 INICIANDO SETUP DO BANCO")
+    print("=" * 60)
     
     if criar_banco():
         if criar_tabelas():
             inserir_dados_exemplo()
+            mostrar_status()
     
-    print("\n=== SETUP CONCLUÍDO ===")
+    print("\n" + "=" * 60)
+    print("✅ SETUP CONCLUÍDO")
+    print("=" * 60)

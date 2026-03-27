@@ -19,7 +19,6 @@ def ler_csv(caminho):
 def escrever_csv(caminho, campos, dados):
     """Escreve um arquivo CSV"""
     try:
-        # Garantir que o diretório existe
         os.makedirs(os.path.dirname(caminho), exist_ok=True)
         
         with open(caminho, 'w', encoding='utf-8', newline='') as f:
@@ -32,21 +31,29 @@ def escrever_csv(caminho, campos, dados):
         return False
 
 def gerar_nome_arquivo(tipo, id_consulta=None):
-    """Gera nome do arquivo conforme padrão"""
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    """
+    Gera nome do arquivo conforme padrão: TIPO_YYMMDD_HHMMSS_ID.csv
+    Exemplo: CONSULTA_250327_143022_123456.csv
+    """
+    agora = datetime.now()
+    data = agora.strftime('%y%m%d')
+    hora = agora.strftime('%H%M%S')
+    
+    if id_consulta is None:
+        id_consulta = agora.strftime('%H%M%S')
     
     if tipo == 'CONSULTA':
-        return f"CONSULTA_{timestamp}_{id_consulta or '000'}.csv"
+        return f"CONSULTA_{data}_{hora}_{id_consulta}.csv"
     elif tipo == 'RESPOSTA':
-        return f"RESPOSTA_{timestamp}_{id_consulta or '000'}.csv"
+        return f"RESPOSTA_{data}_{hora}_{id_consulta}.csv"
     elif tipo == 'RESERVA':
-        return f"RESERVA_{timestamp}_{id_consulta or '000'}.csv"
+        return f"RESERVA_{data}_{hora}_{id_consulta}.csv"
     elif tipo == 'BAIXA':
-        return f"BAIXA_{timestamp}_{id_consulta or '000'}.csv"
+        return f"BAIXA_{data}_{hora}_{id_consulta}.csv"
     elif tipo == 'CONSUMO':
-        return f"CONSUMO_{datetime.now().strftime('%Y%m%d')}.csv"
+        return f"CONSUMO_{data}.csv"
     else:
-        return f"{tipo}_{timestamp}.csv"
+        return f"{tipo}_{data}_{hora}_{id_consulta}.csv"
 
 def mover_para_processados(caminho_arquivo, tipo):
     """Move um arquivo para a pasta de processados"""

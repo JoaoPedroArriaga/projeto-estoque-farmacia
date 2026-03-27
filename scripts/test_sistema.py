@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 """
 Script para testar o fluxo completo do sistema
-Cria arquivos de exemplo e processa
 """
 import os
 import sys
+import random
+from datetime import datetime
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config.database import db
@@ -12,128 +14,183 @@ from src.processors.consulta_processor import ConsultaProcessor
 from src.processors.reserva_processor import ReservaProcessor
 from src.processors.baixa_processor import BaixaProcessor
 from src.processors.consumo_generator import ConsumoGenerator
-from src.utils.csv_utils import escrever_csv
+from src.utils.csv_utils import escrever_csv, gerar_nome_arquivo
 
-def criar_arquivo_consulta():
-    """Cria um arquivo de consulta de exemplo"""
-    dados = [
-        {
-            'id_prescricao': '123456',
-            'cpf_paciente': '12345678901',
-            'codigo_medicamento': '789123',
-            'quantidade': '2'
-        }
-    ]
+def buscar_medicamentos():
+    """Busca medicamentos disponíveis no banco"""
+    db.connect()
+    medicamentos = db.execute(
+        "SELECT codigo FROM medicamentos ORDER BY codigo",
+        fetch_all=True
+    )
+    db.close()
+    return [m['codigo'] for m in medicamentos] if medicamentos else [789123]
+
+def criar_arquivo_consulta(id_prescricao, cpf, codigo, quantidade):
+    """Cria um arquivo de consulta"""
+    dados = [{
+        'id_prescricao': str(id_prescricao),
+        'cpf_paciente': str(cpf),
+        'codigo_medicamento': str(codigo),
+        'quantidade': str(quantidade)
+    }]
     
-    caminho = 'data/entrada/consultas/CONSULTA_TESTE_001.csv'
+    nome_arquivo = gerar_nome_arquivo('CONSULTA', str(id_prescricao))
+    caminho = os.path.join('data', 'entrada', 'consultas', nome_arquivo)
     campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 'quantidade']
     escrever_csv(caminho, campos, dados)
-    print(f"✅ Arquivo de consulta criado: {caminho}")
     return caminho
 
-def criar_arquivo_reserva():
-    """Cria um arquivo de reserva de exemplo"""
-    dados = [
-        {
-            'id_prescricao': '123456',
-            'cpf_paciente': '12345678901',
-            'codigo_medicamento': '789123',
-            'quantidade': '2',
-            'lote': 'LOTE123'
-        }
-    ]
+def criar_arquivo_reserva(id_prescricao, cpf, codigo, quantidade):
+    """Cria um arquivo de reserva (sem lote)"""
+    dados = [{
+        'id_prescricao': str(id_prescricao),
+        'cpf_paciente': str(cpf),
+        'codigo_medicamento': str(codigo),
+        'quantidade': str(quantidade)
+    }]
     
-    caminho = 'data/entrada/reservas/RESERVA_TESTE_001.csv'
-    campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 'quantidade', 'lote']
+    nome_arquivo = gerar_nome_arquivo('RESERVA', str(id_prescricao))
+    caminho = os.path.join('data', 'entrada', 'reservas', nome_arquivo)
+    campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 'quantidade']
     escrever_csv(caminho, campos, dados)
-    print(f"✅ Arquivo de reserva criado: {caminho}")
     return caminho
 
-def criar_arquivo_baixa():
-    """Cria um arquivo de baixa de exemplo"""
-    dados = [
-        {
-            'id_prescricao': '123456',
-            'cpf_paciente': '12345678901',
-            'codigo_medicamento': '789123',
-            'quantidade': '2',
-            'lote': 'LOTE123',
-            'data_uso': '240320'
-        }
-    ]
+def criar_arquivo_baixa(id_prescricao, cpf, codigo, quantidade, lote):
+    """Cria um arquivo de baixa"""
+    data_uso = datetime.now().strftime('%y%m%d')
     
-    caminho = 'data/entrada/baixas/BAIXA_TESTE_001.csv'
-    campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 
-              'quantidade', 'lote', 'data_uso']
+    dados = [{
+        'id_prescricao': str(id_prescricao),
+        'cpf_paciente': str(cpf),
+        'codigo_medicamento': str(codigo),
+        'quantidade': str(quantidade),
+        'lote': lote,
+        'data_uso': data_uso
+    }]
+    
+    nome_arquivo = gerar_nome_arquivo('BAIXA', str(id_prescricao))
+    caminho = os.path.join('data', 'entrada', 'baixas', nome_arquivo)
+    campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 'quantidade', 'lote', 'data_uso']
     escrever_csv(caminho, campos, dados)
-    print(f"✅ Arquivo de baixa criado: {caminho}")
     return caminho
 
 def main():
-    print("=== TESTE DO SISTEMA DE ESTOQUE E FARMÁCIA ===\n")
+    print("=" * 60)
+    print("🧪 TESTE DO SISTEMA DE ESTOQUE E FARMÁCIA")
+    print("=" * 60)
     
-    # Conectar ao banco
+    # Buscar medicamentos
+    print("\n📊 Buscando medicamentos...")
+    medicamentos = buscar_medicamentos()
+    
+    if not medicamentos:
+        print("❌ Nenhum medicamento encontrado!")
+        return
+    
+    print(f"   ✅ Encontrados {len(medicamentos)} medicamentos")
+    
+    # CPFs para teste
+    cpfs = [
+        '12345678901', '98765432100', '11122233344', 
+        '55566677788', '99988877766', '44455566677'
+    ]
+    
+    quantidade_testes = 3
+    print(f"\n📝 Gerando {quantidade_testes} fluxos de teste...\n")
+    
+    arquivos = {'consultas': [], 'reservas': []}
+    
+    for i in range(quantidade_testes):
+        print(f"{'='*50}")
+        print(f"🔹 TESTE {i+1}")
+        print(f"{'='*50}")
+        
+        # Selecionar medicamento aleatório
+        codigo = random.choice(medicamentos)
+        quantidade = random.randint(1, 3)
+        cpf = random.choice(cpfs)
+        id_prescricao = int(f"{datetime.now().strftime('%H%M%S')}{i+1:03d}")
+        
+        print(f"   📋 ID Prescrição: {id_prescricao}")
+        print(f"   💊 Medicamento: {codigo}")
+        print(f"   🔢 Quantidade: {quantidade}")
+        print(f"   👤 CPF: {cpf}")
+        print()
+        
+        # Criar consulta
+        print("   [1/3] Criando CONSULTA...")
+        consulta = criar_arquivo_consulta(id_prescricao, cpf, codigo, quantidade)
+        arquivos['consultas'].append(consulta)
+        
+        # Criar reserva (sem lote - G3 vai aplicar FEFO)
+        print("   [2/3] Criando RESERVA...")
+        reserva = criar_arquivo_reserva(id_prescricao, cpf, codigo, quantidade)
+        arquivos['reservas'].append(reserva)
+        
+        print()
+    
+    # Processar arquivos
+    print("=" * 60)
+    print("⚙️ PROCESSANDO ARQUIVOS")
+    print("=" * 60)
+    
     db.connect()
     
-    # Criar arquivos de teste
-    print("1. Criando arquivos de teste...")
-    arquivo_consulta = criar_arquivo_consulta()
-    arquivo_reserva = criar_arquivo_reserva()
-    arquivo_baixa = criar_arquivo_baixa()
+    print("\n📄 Processando consultas...")
+    for arquivo in arquivos['consultas']:
+        ConsultaProcessor.processar(arquivo)
     
-    # Processar consulta
-    print("\n2. Processando consulta...")
-    ConsultaProcessor.processar(arquivo_consulta)
+    print("\n🔒 Processando reservas...")
+    for arquivo in arquivos['reservas']:
+        ReservaProcessor.processar(arquivo)
     
-    # Processar reserva
-    print("\n3. Processando reserva...")
-    ReservaProcessor.processar(arquivo_reserva)
+    # Agora criar as baixas (precisamos saber qual lote foi reservado)
+    print("\n📦 Buscando reservas para criar baixas...")
     
-    # Processar baixa
-    print("\n4. Processando baixa...")
-    BaixaProcessor.processar(arquivo_baixa)
+    # Buscar as reservas ativas para obter os lotes
+    reservas_ativas = db.execute(
+        "SELECT id_prescricao, cpf_paciente, codigo_medicamento, quantidade, lote FROM reservas_ativas WHERE status = 'RESERVADO'",
+        fetch_all=True
+    )
+    
+    arquivos_baixa = []
+    for reserva in reservas_ativas:
+        print(f"   Criando BAIXA para prescrição {reserva['id_prescricao']} (lote {reserva['lote']})")
+        baixa = criar_arquivo_baixa(
+            reserva['id_prescricao'],
+            reserva['cpf_paciente'],
+            reserva['codigo_medicamento'],
+            reserva['quantidade'],
+            reserva['lote']
+        )
+        arquivos_baixa.append(baixa)
+    
+    print("\n✅ Processando baixas...")
+    for arquivo in arquivos_baixa:
+        BaixaProcessor.processar(arquivo)
     
     # Gerar consumo
-    print("\n5. Gerando relatório de consumo...")
+    print("\n📊 Gerando relatório de consumo...")
     from datetime import date
     ConsumoGenerator.gerar(date.today())
     
     # Mostrar resultados
-    print("\n6. Resultados no banco:")
+    print("\n" + "=" * 60)
+    print("📈 RESULTADOS")
+    print("=" * 60)
     
-    lotes = db.execute("SELECT * FROM lotes ORDER BY numero_lote", fetch_all=True)
-    print(f"   Lotes: {len(lotes)}")
-    for l in lotes:
-        print(f"     - {l['numero_lote']}: {l['quantidade_atual']} unidades")
+    lotes_atual = db.execute("SELECT * FROM lotes ORDER BY numero_lote", fetch_all=True)
+    print("\n📦 Estoque atual:")
+    for lote in lotes_atual:
+        print(f"   - {lote['numero_lote']}: {lote['quantidade_atual']} unidades")
     
-    itens = db.execute("SELECT * FROM itens_consumo", fetch_all=True)
-    print(f"   Itens de consumo: {len(itens)}")
-    for i in itens:
-        print(f"     - {i['id_prescricao']}: {i['quantidade']} x R$ {i['preco_total']}")
+    itens = db.execute("SELECT * FROM itens_consumo ORDER BY id_item DESC", fetch_all=True)
+    print(f"\n📋 Itens de consumo: {len(itens)}")
+    total_valor = sum(float(i['preco_total']) for i in itens)
+    print(f"   Valor total faturado: R$ {total_valor:.2f}")
     
-    # Mostrar pastas
-    print("\n7. Verificando arquivos gerados:")
-    
-    if os.path.exists('data/saida/respostas'):
-        respostas = os.listdir('data/saida/respostas')
-        print(f"   Respostas: {len(respostas)} arquivo(s)")
-        for r in respostas:
-            print(f"     - {r}")
-    
-    if os.path.exists('data/saida/consumos'):
-        consumos = os.listdir('data/saida/consumos')
-        print(f"   Consumos: {len(consumos)} arquivo(s)")
-        for c in consumos:
-            print(f"     - {c}")
-    
-    if os.path.exists('data/processados'):
-        for pasta in ['consultas', 'reservas', 'baixas']:
-            caminho = f'data/processados/{pasta}'
-            if os.path.exists(caminho):
-                arquivos = os.listdir(caminho)
-                print(f"   Processados/{pasta}: {len(arquivos)} arquivo(s)")
-    
-    print("\n✅ Teste concluído!")
+    print("\n✅ TESTE CONCLUÍDO!")
     db.close()
 
 if __name__ == "__main__":

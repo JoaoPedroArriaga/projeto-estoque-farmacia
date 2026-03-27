@@ -16,10 +16,10 @@ class ConsumoGenerator:
         
         print(f"📊 Gerando relatório de consumo para {p_data}")
         
-        # Buscar itens de consumo não enviados
+        # Buscar itens de consumo
         itens = db.execute(
             """SELECT id_prescricao, cpf_paciente, codigo_medicamento,
-                      quantidade, preco_total, data_uso, lote
+                      lote, quantidade, unidade, preco_total, data_uso
                FROM itens_consumo
                WHERE consolidado_em = %s AND enviado_para_g1 = FALSE""",
             (p_data,),
@@ -37,8 +37,17 @@ class ConsumoGenerator:
         pasta_consumos = os.getenv('PASTA_CONSUMOS', 'saida/consumos')
         caminho = os.path.join(data_dir, pasta_consumos, nome_arquivo)
         
-        campos = ['id_prescricao', 'cpf_paciente', 'codigo_medicamento', 
-                  'quantidade', 'preco_total', 'data_uso', 'lote']
+        # Campos do relatório
+        campos = [
+            'id_prescricao',
+            'cpf_paciente',
+            'codigo_medicamento',
+            'lote',
+            'quantidade',
+            'unidade',
+            'preco_total',
+            'data_uso'
+        ]
         
         escrever_csv(caminho, campos, itens)
         
