@@ -13,6 +13,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils.csv_utils import escrever_csv, gerar_nome_arquivo
 from src.config.database import db
 
+def buscar_lote_reservado(id_prescricao):
+    """Busca o lote que foi reservado para esta prescrição"""
+    try:
+        db.connect()
+        result = db.execute(
+            "SELECT lote FROM reservas_ativas WHERE id_prescricao = %s AND status = 'RESERVADO'",
+            (id_prescricao,),
+            fetch_one=True
+        )
+        db.close()
+        return result['lote'] if result else None
+    except Exception as e:
+        print(f"   ⚠️ Erro ao buscar lote reservado: {e}")
+        return None
+
 def buscar_lotes():
     """Busca lotes disponíveis no banco"""
     db.connect()
@@ -26,10 +41,16 @@ def buscar_lotes():
     db.close()
     return lotes
 
-def gerar_baixa(codigo_medicamento=789123, quantidade=2, lote='LOTE123', id_prescricao=None, cpf_paciente=12345678901):
+def gerar_baixa(codigo_medicamento=789123, quantidade=2, lote=None, id_prescricao=None, cpf_paciente=12345678901):
     """Gera um arquivo de baixa"""
     if id_prescricao is None:
         id_prescricao = datetime.now().strftime('%H%M%S')
+    
+    # Buscar lote reservado se não foi fornecido
+    if lote is None:
+        lote = buscar_lote_reservado(id_prescricao)
+        if lote is None:
+            lote = 'LOTE002'  # fallback padrão
     
     data_uso = datetime.now().strftime('%y%m%d')  # YYMMDD
     

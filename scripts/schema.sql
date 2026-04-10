@@ -93,6 +93,17 @@ CREATE TABLE IF NOT EXISTS projeto.logs_consumos (
     data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Log de arquivos externos (status_financeiro, finalizacao)
+CREATE TABLE IF NOT EXISTS projeto.logs_arquivos_externos (
+    id_log SERIAL PRIMARY KEY,
+    arquivo_nome VARCHAR(100) NOT NULL,
+    tipo VARCHAR(30) NOT NULL, -- 'STATUS_FINANCEIRO', 'FINALIZACAO'
+    data_recebimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'RECEBIDO',
+    observacao VARCHAR(500),
+    data_processamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =============================================
 -- 3. TABELAS DE RESERVAS ATIVAS
 -- =============================================

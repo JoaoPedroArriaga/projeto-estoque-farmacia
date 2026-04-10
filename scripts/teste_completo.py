@@ -1,9 +1,13 @@
 #!/usr/bin/env python
+"""
+TESTE COMPLETO - SISTEMA DE ESTOQUE E FARMÁCIA (CSV)
+Executa o fluxo completo com validação de todos os cenários
+"""
 import os
 import sys
+import random
 from datetime import datetime, date
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
 
 from src.config.database import db
 from src.processors.consulta_processor import ConsultaProcessor
@@ -11,6 +15,12 @@ from src.processors.reserva_processor import ReservaProcessor
 from src.processors.baixa_processor import BaixaProcessor
 from src.processors.consumo_generator import ConsumoGenerator
 from src.utils.csv_utils import escrever_csv, gerar_nome_arquivo
+
+# Define o diretório base como a RAIZ do projeto (2 níveis acima do script)
+BASE_DIR = Path(__file__).parent.parent
+os.chdir(BASE_DIR)  # Muda para a raiz do projeto
+
+sys.path.insert(0, str(BASE_DIR))
 
 def limpar_dados():
     """Limpa dados anteriores"""
@@ -47,7 +57,7 @@ def mostrar_estoque_final():
     print("\n📦 ESTOQUE FINAL:")
     print("-" * 70)
     lotes = db.execute("""
-        SELECT l.numero_lote, m.nome, l.quantidade_atual, m.unidade, l.data_validade,
+        SELECT l.numero_lote, m.nome, l.quantidade_atual, m.unidade,
                l.quantidade_inicial - l.quantidade_atual as consumido
         FROM lotes l
         JOIN medicamentos m ON m.codigo = l.codigo_medicamento
@@ -285,8 +295,6 @@ def main():
     }])
     ConsultaProcessor.processar(consulta)
     
-    # Reserva com lote que não existe - mas o reserva_processor não usa lote do arquivo
-    # Ele aplica FEFO automaticamente, então essa reserva vai funcionar
     reserva_invalida = criar_arquivo('RESERVA', id_7, [{
         'id_prescricao': str(id_7),
         'cpf_paciente': cpfs['PACIENTE_B'],
@@ -306,7 +314,6 @@ def main():
     
     id_8 = int(f"{datetime.now().strftime('%H%M%S')}008")
     
-    # Primeiro consulta e reserva (reserva o lote do FEFO)
     consulta = criar_arquivo('CONSULTA', id_8, [{
         'id_prescricao': str(id_8),
         'cpf_paciente': cpfs['PACIENTE_C'],
@@ -323,7 +330,6 @@ def main():
     }])
     ReservaProcessor.processar(reserva)
     
-    # Baixa com lote diferente (LOTE001 em vez de LOTE002)
     baixa_lote_errado = criar_arquivo('BAIXA', id_8, [{
         'id_prescricao': str(id_8),
         'cpf_paciente': cpfs['PACIENTE_C'],
@@ -357,9 +363,7 @@ def main():
     print("\n📄 RELATÓRIO DE CONSUMO GERADO:")
     print("-" * 70)
     
-    data_dir = os.getenv('DATA_DIR', 'data')
-    pasta_consumos = os.getenv('PASTA_CONSUMOS', 'saida/consumos')
-    caminho_consumo = os.path.join(data_dir, pasta_consumos, f"CONSUMO_{date.today().strftime('%y%m%d')}.csv")
+    caminho_consumo = os.path.join('data', 'saida', 'consumos', f"CONSUMO_{date.today().strftime('%y%m%d')}.csv")
     
     if os.path.exists(caminho_consumo):
         with open(caminho_consumo, 'r', encoding='utf-8') as f:
